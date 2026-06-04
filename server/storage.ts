@@ -44,6 +44,8 @@ export interface IStorage {
 
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   listAuditLogs(driveId: string): Promise<AuditLog[]>;
+  listAllAuditLogs(): Promise<any[]>;
+  deleteCompany(id: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -132,6 +134,32 @@ export class DatabaseStorage implements IStorage {
 
   async listAuditLogs(driveId: string): Promise<AuditLog[]> {
     return await db.select().from(auditLogs).where(eq(auditLogs.driveId, driveId)).orderBy(desc(auditLogs.createdAt));
+  }
+
+  async listAllAuditLogs(): Promise<any[]> {
+    const rows = await db
+      .select({
+        id: auditLogs.id,
+        userId: auditLogs.userId,
+        driveId: auditLogs.driveId,
+        action: auditLogs.action,
+        previousStatus: auditLogs.previousStatus,
+        newStatus: auditLogs.newStatus,
+        metadata: auditLogs.metadata,
+        createdAt: auditLogs.createdAt,
+        companyName: companies.name,
+        companyId: companies.id,
+      })
+      .from(auditLogs)
+      .leftJoin(placementDrives, eq(auditLogs.driveId, placementDrives.id))
+      .leftJoin(companies, eq(placementDrives.companyId, companies.id))
+      .orderBy(desc(auditLogs.createdAt));
+    return rows;
+  }
+
+  async deleteCompany(id: string): Promise<boolean> {
+    const result = await db.delete(companies).where(eq(companies.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 }
 

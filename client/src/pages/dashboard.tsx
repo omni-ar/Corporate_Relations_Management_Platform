@@ -1,19 +1,15 @@
-import { useMemo } from "react";
-import { motion } from "framer-motion";
-import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import { authFetch } from "@/lib/auth";
 import {
-  ArrowLeft,
-  BadgeCheck,
   Building2,
-  Clock,
-  LogOut,
-  Star,
+  Briefcase,
   TrendingUp,
-  AlertTriangle,
-  Users,
-  Package,
+  IndianRupee,
+  Calendar,
+  ArrowRight,
+  Activity,
 } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart,
   Bar,
@@ -22,448 +18,367 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Legend,
 } from "recharts";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
-type Vendor = {
-  id: string;
-  vendorName: string;
-  category: string;
-  productType: string;
-  contactPerson: string;
-  phone: string;
-  email: string;
-  city: string;
-  priceRange: string;
-  leadTimeDays: number;
-  paymentTerms: string;
-  branding: string;
-  qualityRating: string;
-  approved: boolean;
-  lastOrder: string | null;
-  performance: string;
-  remarks: string;
-};
+function useAnalyticsOverview() {
+  return useQuery({
+    queryKey: ["analytics", "overview"],
+    queryFn: async () => {
+      const res = await authFetch("/api/analytics/overview");
+      if (!res.ok) throw new Error("Failed to fetch analytics");
+      return res.json();
+    },
+  });
+}
 
-const COLORS = ["#0ea5e9", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899"];
+function useAnalyticsIndustry() {
+  return useQuery({
+    queryKey: ["analytics", "industry"],
+    queryFn: async () => {
+      const res = await authFetch("/api/analytics/industry");
+      if (!res.ok) throw new Error("Failed to fetch industry data");
+      return res.json();
+    },
+  });
+}
+
+function useCompanies() {
+  return useQuery({
+    queryKey: ["companies"],
+    queryFn: async () => {
+      const res = await authFetch("/api/companies");
+      if (!res.ok) throw new Error("Failed to fetch companies");
+      return res.json();
+    },
+  });
+}
+
+function useDrives() {
+  return useQuery({
+    queryKey: ["drives"],
+    queryFn: async () => {
+      const res = await authFetch("/api/drives");
+      if (!res.ok) throw new Error("Failed to fetch drives");
+      return res.json();
+    },
+  });
+}
+
+function useAuditLogs() {
+  return useQuery({
+    queryKey: ["audit-logs"],
+    queryFn: async () => {
+      const res = await authFetch("/api/audit-logs");
+      if (!res.ok) throw new Error("Failed to fetch audit logs");
+      return res.json();
+    },
+  });
+}
 
 function KPICard({
   title,
   value,
   icon: Icon,
-  subtitle,
-  trend,
-  accent = false,
+  description,
 }: {
   title: string;
   value: string | number;
   icon: React.ElementType;
-  subtitle?: string;
-  trend?: "up" | "down" | "neutral";
-  accent?: boolean;
+  description?: string;
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`glass-stat rounded-xl p-5 ${accent ? "ring-2 ring-primary/20" : ""}`}
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-1 text-3xl font-bold title-serif">{value}</p>
-          {subtitle && (
-            <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
-          )}
+    <Card>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">{title}</p>
+            <p className="mt-1 text-2xl font-semibold">{value}</p>
+            {description && (
+              <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+            )}
+          </div>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+            <Icon className="h-5 w-5 text-primary" />
+          </div>
         </div>
-        <div className={`stat-icon-gradient rounded-lg p-3 ${accent ? "bg-primary/10" : ""}`}>
-          <Icon className={`size-6 ${accent ? "text-primary" : "text-muted-foreground"}`} />
-        </div>
-      </div>
-      {trend && (
-        <div className="mt-3 flex items-center gap-1">
-          <TrendingUp
-            className={`size-4 ${
-              trend === "up"
-                ? "text-emerald-500"
-                : trend === "down"
-                  ? "text-rose-500 rotate-180"
-                  : "text-muted-foreground"
-            }`}
-          />
-          <span
-            className={`text-xs ${
-              trend === "up"
-                ? "text-emerald-600"
-                : trend === "down"
-                  ? "text-rose-600"
-                  : "text-muted-foreground"
-            }`}
-          >
-            {trend === "up" ? "Improving" : trend === "down" ? "Declining" : "Stable"}
-          </span>
-        </div>
-      )}
-    </motion.div>
+      </CardContent>
+    </Card>
   );
 }
 
+const PIPELINE_STAGES = [
+  "CONTACTED",
+  "INTERESTED",
+  "PPT_SCHEDULED",
+  "OA_SCHEDULED",
+  "INTERVIEW_SCHEDULED",
+  "COMPLETED",
+];
+
+const STAGE_LABELS: Record<string, string> = {
+  CONTACTED: "Contacted",
+  INTERESTED: "Interested",
+  PPT_SCHEDULED: "PPT",
+  OA_SCHEDULED: "OA",
+  INTERVIEW_SCHEDULED: "Interview",
+  COMPLETED: "Completed",
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  DRIVE_CREATED: "Drive created",
+  STATUS_CHANGE: "Status changed",
+  DRIVE_UPDATED: "Drive updated",
+  DRIVE_DELETED: "Drive deleted",
+};
+
+function formatTimeAgo(ts: string | null): string {
+  if (!ts) return "";
+  const now = Date.now();
+  const then = new Date(ts).getTime();
+  const diff = now - then;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function DashboardPage() {
-  const [, setLocation] = useLocation();
-  const queryClient = useQueryClient();
+  const { data: overview } = useAnalyticsOverview();
+  const { data: industryData = [] } = useAnalyticsIndustry();
+  const { data: companiesData = [] } = useCompanies();
+  const { data: drivesData = [] } = useDrives();
+  const { data: auditData = [] } = useAuditLogs();
 
-  const handleLogout = async () => {
-    try {
-      const res = await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-      if (res.ok) {
-        queryClient.invalidateQueries({ queryKey: ["auth-status"] });
-        setLocation("/login");
-      }
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
+  const activeDrives = drivesData.filter(
+    (d: any) => d.status !== "COMPLETED" && d.status !== "CANCELLED"
+  );
 
-  const { data: vendors = [], isLoading } = useQuery({
-    queryKey: ["vendors"],
-    queryFn: async () => {
-      const res = await fetch("/api/vendors");
-      if (!res.ok) throw new Error("Failed to fetch vendors");
-      return res.json() as Promise<Vendor[]>;
-    },
-  });
+  // Upcoming drives (next 7 days)
+  const now = new Date();
+  const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const upcomingDrives = drivesData
+    .filter((d: any) => {
+      if (!d.driveDate) return false;
+      const driveDate = new Date(d.driveDate);
+      return driveDate >= now && driveDate <= weekFromNow;
+    })
+    .sort((a: any, b: any) => new Date(a.driveDate).getTime() - new Date(b.driveDate).getTime())
+    .slice(0, 5);
 
-  const stats = useMemo(() => {
-    const total = vendors.length;
-    const approved = vendors.filter((v) => v.approved).length;
-    const avgQuality =
-      vendors.reduce((sum, v) => sum + parseFloat(v.qualityRating || "0"), 0) / (total || 1);
-    const avgLeadTime =
-      vendors.reduce((sum, v) => sum + (v.leadTimeDays || 0), 0) / (total || 1);
+  // Funnel data
+  const funnel = overview?.funnel || {};
 
-    const categoryData = Object.entries(
-      vendors.reduce(
-        (acc, v) => {
-          acc[v.category] = (acc[v.category] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>,
-      ),
-    ).map(([name, value]) => ({ name, value }));
+  // Pipeline summary
+  const pipelineCounts = PIPELINE_STAGES.map((stage) => ({
+    stage,
+    label: STAGE_LABELS[stage],
+    count: drivesData.filter((d: any) => d.status === stage).length,
+  }));
 
-    const performanceData = [
-      { name: "Excellent", count: vendors.filter((v) => v.performance === "Excellent").length },
-      { name: "Good", count: vendors.filter((v) => v.performance === "Good").length },
-      { name: "Watch", count: vendors.filter((v) => v.performance === "Watch").length },
-      { name: "At Risk", count: vendors.filter((v) => v.performance === "At Risk").length },
-    ];
+  const avgCtc = overview?.ctc?.avgCtc ? Math.round(Number(overview.ctc.avgCtc)) : 0;
+  const highestCtc = overview?.ctc?.highestCtc ? Number(overview.ctc.highestCtc) : 0;
 
-    const cityData = Object.entries(
-      vendors.reduce(
-        (acc, v) => {
-          acc[v.city] = (acc[v.city] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>,
-      ),
-    )
-      .map(([city, count]) => ({ city, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-
-    const qualityByCategory = Object.entries(
-      vendors.reduce(
-        (acc, v) => {
-          if (!acc[v.category]) acc[v.category] = { sum: 0, count: 0 };
-          acc[v.category].sum += parseFloat(v.qualityRating || "0");
-          acc[v.category].count += 1;
-          return acc;
-        },
-        {} as Record<string, { sum: number; count: number }>,
-      ),
-    ).map(([category, data]) => ({
-      category,
-      rating: data.count > 0 ? data.sum / data.count : 0,
-    }));
-
-    const atRiskVendors = vendors.filter(
-      (v) => v.performance === "At Risk" || v.performance === "Watch",
-    );
-
-    const pendingApproval = vendors.filter((v) => !v.approved);
-
-    return {
-      total,
-      approved,
-      approvalRate: total > 0 ? ((approved / total) * 100).toFixed(0) : "0",
-      avgQuality,
-      avgLeadTime,
-      categoryData,
-      performanceData,
-      cityData,
-      qualityByCategory,
-      atRiskVendors,
-      pendingApproval,
-    };
-  }, [vendors]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading dashboard...</div>
-      </div>
-    );
-  }
+  // Recent activity (last 8 audit logs)
+  const recentActivity = auditData.slice(0, 8);
 
   return (
-    <div className="min-h-screen bg-background app-hero-bg">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <header className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back-vendors">
-                <ArrowLeft className="size-4" />
-                Back to Vendors
-              </Button>
-            </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-              onClick={handleLogout}
-              data-testid="button-logout"
-            >
-              <LogOut className="size-4" />
-              Logout
-            </Button>
-          </div>
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <h1 className="text-3xl font-bold title-serif sm:text-4xl" data-testid="text-dashboard-title">
-              Performance <span className="gradient-text">Dashboard</span>
-            </h1>
-            <p className="mt-2 text-muted-foreground" data-testid="text-dashboard-subtitle">
-              Key performance indicators and analytics for your vendor network
-            </p>
-          </motion.div>
-        </header>
+    <div className="space-y-6">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Placement operations overview and key metrics.
+        </p>
+      </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-          <KPICard
-            title="Total Vendors"
-            value={stats.total}
-            icon={Users}
-            subtitle="Active in database"
-            accent
-          />
-          <KPICard
-            title="Approval Rate"
-            value={`${stats.approvalRate}%`}
-            icon={BadgeCheck}
-            subtitle={`${stats.approved} of ${stats.total} approved`}
-            trend={parseInt(stats.approvalRate) >= 80 ? "up" : "neutral"}
-          />
-          <KPICard
-            title="Avg Quality Rating"
-            value={stats.avgQuality.toFixed(1)}
-            icon={Star}
-            subtitle="Out of 5.0"
-            trend={stats.avgQuality >= 4.2 ? "up" : stats.avgQuality < 3.5 ? "down" : "neutral"}
-          />
-          <KPICard
-            title="Avg Lead Time"
-            value={`${Math.round(stats.avgLeadTime)}d`}
-            icon={Clock}
-            subtitle="Days to delivery"
-          />
-        </div>
+      {/* KPI Row */}
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <KPICard
+          title="Total Companies"
+          value={companiesData.length}
+          icon={Building2}
+          description="Registered in system"
+        />
+        <KPICard
+          title="Active Drives"
+          value={activeDrives.length}
+          icon={Briefcase}
+          description={`${drivesData.length} total drives`}
+        />
+        <KPICard
+          title="Average CTC"
+          value={avgCtc ? `₹${(avgCtc / 100000).toFixed(1)}L` : "—"}
+          icon={TrendingUp}
+          description="Across completed drives"
+        />
+        <KPICard
+          title="Highest Package"
+          value={highestCtc ? `₹${(highestCtc / 100000).toFixed(1)}L` : "—"}
+          icon={IndianRupee}
+          description="Maximum offered CTC"
+        />
+      </div>
 
-        <div className="grid gap-6 lg:grid-cols-2 mb-8">
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass-panel rounded-xl p-6"
-          >
-            <h3 className="text-lg font-semibold mb-4" data-testid="text-chart-category">Vendors by Category</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {stats.categoryData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+      {/* Pipeline summary + Upcoming drives */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Pipeline */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium">Drive Pipeline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {pipelineCounts.map((item, i) => (
+                <div key={item.stage} className="flex items-center gap-1.5">
+                  <div className="flex flex-col items-center rounded-lg border border-border px-4 py-2.5 min-w-[80px]">
+                    <span className="text-xl font-semibold">{item.count}</span>
+                    <span className="text-xs text-muted-foreground">{item.label}</span>
+                  </div>
+                  {i < pipelineCounts.length - 1 && (
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 hidden sm:block" />
+                  )}
+                </div>
+              ))}
             </div>
-          </motion.div>
+          </CardContent>
+        </Card>
 
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="glass-panel rounded-xl p-6"
-          >
-            <h3 className="text-lg font-semibold mb-4" data-testid="text-chart-performance">Performance Distribution</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.performanceData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={80} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#0ea5e9" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2 mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="glass-panel rounded-xl p-6"
-          >
-            <h3 className="text-lg font-semibold mb-4" data-testid="text-chart-cities">Vendors by City</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.cityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="city" tick={{ fontSize: 12 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="glass-panel rounded-xl p-6"
-          >
-            <h3 className="text-lg font-semibold mb-4" data-testid="text-chart-quality">Quality Rating by Category</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.qualityByCategory}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="category" tick={{ fontSize: 12 }} />
-                  <YAxis domain={[0, 5]} />
-                  <Tooltip formatter={(value: number) => value.toFixed(2)} />
-                  <Line
-                    type="monotone"
-                    dataKey="rating"
-                    stroke="#8b5cf6"
-                    strokeWidth={2}
-                    dot={{ fill: "#8b5cf6", strokeWidth: 2 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="glass-panel rounded-xl p-6"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <AlertTriangle className="size-5 text-amber-500" />
-              <h3 className="text-lg font-semibold" data-testid="text-alert-atrisk">Vendors Needing Attention</h3>
-            </div>
-            {stats.atRiskVendors.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                All vendors are performing well!
+        {/* Upcoming drives */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Upcoming Drives
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {upcomingDrives.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                No drives scheduled in the next 7 days.
               </p>
             ) : (
-              <div className="space-y-3">
-                {stats.atRiskVendors.slice(0, 5).map((v) => (
-                  <div
-                    key={v.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-amber-500/5 border border-amber-500/20"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{v.vendorName}</p>
-                      <p className="text-xs text-muted-foreground">{v.city}</p>
+              <div className="space-y-2.5">
+                {upcomingDrives.map((drive: any) => {
+                  const company = companiesData.find((c: any) => c.id === drive.companyId);
+                  return (
+                    <div key={drive.id} className="flex items-center justify-between text-sm">
+                      <div>
+                        <p className="font-medium">{company?.name || "Unknown"}</p>
+                        <p className="text-xs text-muted-foreground">{drive.driveDate}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {STAGE_LABELS[drive.status] || drive.status}
+                      </Badge>
                     </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        v.performance === "At Risk"
-                          ? "bg-rose-500/15 text-rose-700"
-                          : "bg-amber-500/15 text-amber-700"
-                      }`}
-                    >
-                      {v.performance}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
-          </motion.div>
+          </CardContent>
+        </Card>
+      </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="glass-panel rounded-xl p-6"
-          >
-            <div className="flex items-center gap-2 mb-4">
-              <Package className="size-5 text-sky-500" />
-              <h3 className="text-lg font-semibold" data-testid="text-alert-pending">Pending Approvals</h3>
-            </div>
-            {stats.pendingApproval.length === 0 ? (
-              <p className="text-muted-foreground text-sm">
-                All vendors are approved!
+      {/* Charts + Recent Activity */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Industry Distribution */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium">Industry Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {industryData.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No industry data available yet.
+              </p>
+            ) : (
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={industryData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" />
+                    <YAxis dataKey="industry" type="category" width={80} tick={{ fontSize: 11 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="hsl(234, 89%, 56%)" radius={[0, 4, 4, 0]} name="Companies" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Placement Funnel */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium">Placement Funnel</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {Number(funnel.totalAppeared || 0) === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No placement data yet.
+              </p>
+            ) : (
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={[
+                    { stage: "Appeared", value: Number(funnel.totalAppeared || 0) },
+                    { stage: "Shortlisted", value: Number(funnel.totalShortlisted || 0) },
+                    { stage: "Selected", value: Number(funnel.totalSelected || 0) },
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="stage" tick={{ fontSize: 12 }} />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="hsl(160, 84%, 39%)" radius={[4, 4, 0, 0]} name="Students" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-medium flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentActivity.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                No recent activity.
               </p>
             ) : (
               <div className="space-y-3">
-                {stats.pendingApproval.slice(0, 5).map((v) => (
-                  <div
-                    key={v.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-sky-500/5 border border-sky-500/20"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{v.vendorName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {v.category} • {v.city}
+                {recentActivity.map((log: any) => (
+                  <div key={log.id} className="flex items-start gap-2">
+                    <div className="mt-1 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm leading-tight">
+                        <span className="font-medium">{log.companyName || "System"}</span>
+                        {" — "}
+                        {ACTION_LABELS[log.action] || log.action}
+                        {log.previousStatus && log.newStatus && (
+                          <span className="text-muted-foreground">
+                            {" "}({log.previousStatus} → {log.newStatus})
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatTimeAgo(log.createdAt)}
                       </p>
                     </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-sky-500/15 text-sky-700">
-                      Pending
-                    </span>
                   </div>
                 ))}
               </div>
             )}
-          </motion.div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

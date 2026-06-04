@@ -2,12 +2,11 @@ import { useEffect, useRef, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-type Vendor = {
+type Company = {
   id: string;
-  vendorName: string;
-  city: string;
-  category: string;
-  approved: boolean;
+  name: string;
+  industry: string;
+  city?: string;
 };
 
 const cityCoordinates: Record<string, [number, number]> = {
@@ -56,67 +55,65 @@ const cityCoordinates: Record<string, [number, number]> = {
   Kochi: [9.9312, 76.2673],
   Chandigarh: [30.7333, 76.7794],
   Mysore: [12.2958, 76.6394],
-  Portland: [45.5051, -122.675],
-  Austin: [30.2672, -97.7431],
-  Seattle: [47.6062, -122.3321],
-  "San Francisco": [37.7749, -122.4194],
-  Chicago: [41.8781, -87.6298],
-  "New York": [40.7128, -74.006],
-  "Los Angeles": [34.0522, -118.2437],
-  Dallas: [32.7767, -96.797],
-  "San Jose": [37.3382, -121.8863],
-  Denver: [39.7392, -104.9903],
-  Miami: [25.7617, -80.1918],
-  "San Diego": [32.7157, -117.1611],
+  Noida: [28.5355, 77.391],
+  Gurgaon: [28.4595, 77.0266],
 };
 
-function getCategoryColor(category: string): string {
-  switch (category) {
-    case "Packaging":
+function getIndustryColor(industry: string): string {
+  switch (industry) {
+    case "IT / Software":
+      return "#4f46e5";
+    case "Consulting":
       return "#0ea5e9";
-    case "Hardware":
+    case "Finance / Banking":
       return "#f59e0b";
-    case "Materials":
+    case "Core Engineering":
       return "#10b981";
-    case "Manufacturing":
+    case "E-Commerce":
       return "#8b5cf6";
-    case "Services":
+    case "Healthcare":
       return "#ec4899";
+    case "Analytics":
+      return "#06b6d4";
+    case "FMCG":
+      return "#84cc16";
+    case "Automobile":
+      return "#f97316";
     default:
       return "#6b7280";
   }
 }
 
-
-function createPopupContent(city: string, vendors: Vendor[]): HTMLElement {
+function createPopupContent(city: string, companies: Company[]): HTMLElement {
   const container = document.createElement("div");
-  container.style.minWidth = "200px";
+  container.style.minWidth = "180px";
 
   const title = document.createElement("h3");
   title.style.fontWeight = "600";
-  title.style.fontSize = "14px";
-  title.style.marginBottom = "8px";
+  title.style.fontSize = "13px";
+  title.style.marginBottom = "6px";
   title.textContent = city;
   container.appendChild(title);
 
   const list = document.createElement("div");
-  list.style.fontSize = "12px";
+  list.style.fontSize = "11px";
   list.style.color = "#666";
 
-  vendors.forEach((v) => {
+  companies.forEach((c) => {
     const row = document.createElement("div");
-    row.style.padding = "4px 0";
+    row.style.padding = "3px 0";
     row.style.borderBottom = "1px solid #eee";
 
     const name = document.createElement("span");
     name.style.fontWeight = "500";
-    name.textContent = v.vendorName;
+    name.textContent = c.name;
     row.appendChild(name);
 
-    const status = document.createElement("span");
-    status.style.color = v.approved ? "#10b981" : "#f59e0b";
-    status.textContent = v.approved ? " ✓" : " Pending";
-    row.appendChild(status);
+    const industry = document.createElement("span");
+    industry.style.color = "#999";
+    industry.style.marginLeft = "6px";
+    industry.textContent = `(${c.industry})`;
+    row.appendChild(industry);
 
     list.appendChild(row);
   });
@@ -125,7 +122,7 @@ function createPopupContent(city: string, vendors: Vendor[]): HTMLElement {
   return container;
 }
 
-export default function VendorMap({ vendors }: { vendors: Vendor[] }) {
+export default function CompanyMap({ companies }: { companies: Company[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
@@ -169,44 +166,45 @@ export default function VendorMap({ vendors }: { vendors: Vendor[] }) {
       }
     });
 
-    const vendorsByCity = vendors.reduce(
-      (acc, vendor) => {
-        const city = vendor.city;
+    const companiesByCity = companies.reduce(
+      (acc, company) => {
+        const city = company.city;
+        if (!city) return acc;
         if (!acc[city]) acc[city] = [];
-        acc[city].push(vendor);
+        acc[city].push(company);
         return acc;
       },
-      {} as Record<string, Vendor[]>,
+      {} as Record<string, Company[]>,
     );
 
-    Object.entries(vendorsByCity).forEach(([city, cityVendors]) => {
+    Object.entries(companiesByCity).forEach(([city, cityCompanies]) => {
       const coords = cityCoordinates[city];
       if (!coords) return;
 
-      const primaryCategory = cityVendors[0].category;
-      const color = getCategoryColor(primaryCategory);
+      const primaryIndustry = cityCompanies[0].industry;
+      const color = getIndustryColor(primaryIndustry);
 
       const icon = L.divIcon({
         className: "custom-marker",
         html: `<div style="
           background: ${color};
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           border-radius: 50%;
-          border: 3px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          border: 2px solid white;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.25);
           display: flex;
           align-items: center;
           justify-content: center;
           color: white;
-          font-weight: bold;
-          font-size: 14px;
-        ">${cityVendors.length}</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
+          font-weight: 600;
+          font-size: 12px;
+        ">${cityCompanies.length}</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
       });
 
-      const popupContent = createPopupContent(city, cityVendors);
+      const popupContent = createPopupContent(city, cityCompanies);
       L.marker(coords, { icon }).addTo(map).bindPopup(popupContent);
     });
 
@@ -215,7 +213,7 @@ export default function VendorMap({ vendors }: { vendors: Vendor[] }) {
     }, 200);
 
     return () => {};
-  }, [vendors]);
+  }, [companies]);
 
   useEffect(() => {
     return () => {
@@ -231,7 +229,7 @@ export default function VendorMap({ vendors }: { vendors: Vendor[] }) {
       ref={mapRef}
       className="h-full w-full rounded-lg"
       style={{ minHeight: "300px" }}
-      data-testid="vendor-map"
+      data-testid="company-map"
     />
   );
 }

@@ -285,5 +285,66 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // --- AUDIT LOGS ---
+  app.get("/api/audit-logs", requireAuth, async (req, res) => {
+    try {
+      const logs = await storage.listAllAuditLogs();
+      res.json(logs);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // --- DELETE ROUTES ---
+  app.delete("/api/drives/:id", requireAuth, async (req, res) => {
+    try {
+      const id = String(req.params.id);
+      const drive = await storage.getPlacementDrive(id);
+      if (!drive) return res.status(404).json({ message: "Drive not found" });
+
+      await storage.createAuditLog({
+        userId: req.user!.id,
+        driveId: id,
+        action: "DRIVE_DELETED",
+        previousStatus: drive.status,
+        metadata: { note: "Drive deleted by user" }
+      });
+
+      const deleted = await storage.deletePlacementDrive(id);
+      if (deleted) {
+        res.json({ message: "Drive deleted" });
+      } else {
+        res.status(500).json({ message: "Failed to delete drive" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete("/api/companies/:id", requireAuth, async (req, res) => {
+    try {
+      const id = String(req.params.id);
+      const deleted = await storage.deleteCompany(id);
+      if (deleted) {
+        res.json({ message: "Company deleted" });
+      } else {
+        res.status(404).json({ message: "Company not found" });
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/companies/:id", requireAuth, async (req, res) => {
+    try {
+      const id = String(req.params.id);
+      const company = await storage.getCompany(id);
+      if (!company) return res.status(404).json({ message: "Company not found" });
+      res.json(company);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   return httpServer;
 }

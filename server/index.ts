@@ -1,19 +1,15 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
-const PgSession = connectPgSimple(session);
-
 const app = express();
 const httpServer = createServer(app);
 
-// Detect production: NODE_ENV takes priority, but if in deployed env (no dev domain), treat as production
-export const isProduction = process.env.NODE_ENV === "production" || 
-  (process.env.NODE_ENV !== "development" && !process.env.REPLIT_DEV_DOMAIN);
+// Detect production vs development
+export const isProduction = process.env.NODE_ENV === "production";
 
 app.set("trust proxy", 1);
 
@@ -21,18 +17,6 @@ declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
   }
-}
-
-declare module "express-session" {
-  interface SessionData {
-    authenticated: boolean;
-  }
-}
-
-const sessionSecret = process.env.SESSION_SECRET || (isProduction ? undefined : "afh-dev-secret-2024");
-
-if (!sessionSecret) {
-  throw new Error("SESSION_SECRET environment variable is required in production");
 }
 
 app.use(
@@ -44,25 +28,7 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
-
-app.use(
-  session({
-    store: new PgSession({
-      conString: process.env.DATABASE_URL,
-      tableName: "session",
-      createTableIfMissing: true,
-    }),
-    secret: sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: isProduction,
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: isProduction ? "none" : "lax",
-    },
-  })
-);
+app.use(cookieParser());
 
 console.log(`[express] Running in ${isProduction ? "production" : "development"} mode`);
 
