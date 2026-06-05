@@ -128,8 +128,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // --- HEALTH CHECK ---
   app.get("/healthz", async (req, res) => {
     try {
-      await storage.listCompanies(); 
-      res.json({ status: "healthy", postgres: "connected", redis: "not_configured_yet", uptime: process.uptime() });
+      await storage.listCompanies();
+      res.json({ status: "healthy", postgres: "connected", uptime: process.uptime() });
     } catch (e) {
       res.status(500).json({ status: "unhealthy", postgres: "disconnected", error: String(e) });
     }
