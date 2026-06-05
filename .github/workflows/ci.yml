@@ -25,11 +25,17 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/tpo_ops_test
+      JWT_ACCESS_SECRET: ci_test_access_secret
+      JWT_REFRESH_SECRET: ci_test_refresh_secret
+      NODE_ENV: test
+
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Use Node.js 20
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
@@ -38,7 +44,10 @@ jobs:
       run: npm ci
       
     - name: Type Check
-      run: npm run check
+      run: npx tsc --noEmit
       
     - name: Build Project
       run: npm run build
+
+    - name: Docker Build Test
+      run: docker build -t tpo-ops:ci .

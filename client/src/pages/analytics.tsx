@@ -36,7 +36,9 @@ function useAnalyticsIndustry() {
     queryFn: async () => {
       const res = await authFetch("/api/analytics/industry");
       if (!res.ok) throw new Error("Failed to fetch industry data");
-      return res.json();
+      const data = await res.json();
+      // API returns count as string, Recharts needs numbers
+      return data.map((d: any) => ({ ...d, count: Number(d.count) }));
     },
   });
 }
